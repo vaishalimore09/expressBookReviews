@@ -9,7 +9,7 @@ public_users.post("/register", (req, res) => {
   //Write your code here
   // return res.status(300).json({ message: "Yet to be implemented" });
   const { username, password } = req.body; // Retrieve username and password from request body
-
+  
   // Check if both username and password are provided
   if (!username || !password) {
     return res.status(400).json({ message: "Username and password are required" });

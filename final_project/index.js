@@ -9,32 +9,26 @@ const app = express();
 // Middleware for parsing JSON
 app.use(express.json());
 
-// Session middleware should be before the auth middleware
-app.use(session({
-    secret: "fingerprint_customer",
-    resave: true,
-    saveUninitialized: true
-}));
+// Session middleware configuration
+app.use(session({ secret: "fingerprint", resave: true, saveUninitialized: true }))
 
-// Authorization middleware
-app.use("/customer/auth/*", function auth(req, res, next) {
-    console.log('Session Authorization:', req.session.authorization); // Debugging line
+// Middleware for user authentication
+app.use("/customer/auth/*", (req, res, next) => {
+    console.log(req.session.authorization);
+    const token = req.session.authorization?.accessToken || req.headers['authorization']?.split(' ')[1];
 
-    if (req.session.authorization) {
-        const token = req.session.authorization.accessToken;
-        console.log('Token:', token); // Debugging line
-
-        jwt.verify(token, JWT_SECRET, (err, user) => {
-            if (!err) {
-                req.user = user;
-                next(); // Proceed to the next middleware
-            } else {
-                return res.status(403).json({ message: "User not authenticated" });
-            }
-        });
-    } else {
+    if (!token) {
         return res.status(403).json({ message: "User not logged in" });
     }
+
+    jwt.verify(token, "access", (err, user) => {
+        if (err) {
+            return res.status(403).json({ message: "User not authenticated" });
+        } else {
+            req.user = user;
+            next();
+        }
+    });
 });
 
 const PORT = 5000;

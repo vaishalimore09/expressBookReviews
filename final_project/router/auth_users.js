@@ -1,12 +1,8 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const regd_users = express.Router();
+const regd_users = express.Router(); // Define the router
 
 let users = [];
-
-// Secret key for JWT (keep it private and secure)
-const JWT_SECRET = '061f93f85d5cb02b485884781557126958e6539c0b387c06ca4ac80853e1e2c31f560c11d9681a29fb7701fd62068e2a85f8269b580d8a27a8ebdc1a4b830fc3'; // Change this to a secure key
-
 let books = require("./booksdb.js"); // Ensure books is required here as well
 
 const isValid = (username) => {
@@ -17,30 +13,49 @@ const authenticatedUser = (username, password) => {
   return users.some(user => user.username === username && user.password === password);
 };
 
-// Login route
-regd_users.post("/login", (req, res) => {
+// Login endpoint
+regd_users.post("/login", (req, res) => { // Use regd_users.post instead of app.post
   const { username, password } = req.body;
 
   if (!username || !password) {
     return res.status(400).json({ message: "Username and password are required" });
   }
 
-  if (authenticatedUser(username, password)) {
-    const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '1h' });
+  if (!authenticatedUser(username, password)) {
+    return res.status(401).json({ message: "Invalid credentials" });
+  }
 
-    // Store the token in session
-    req.session.authorization = { accessToken: token };
+  // Generate JWT access token
+  let accessToken = jwt.sign({ username }, 'access', { expiresIn: '1h' });
 
-    console.log('Session after login:', req.session); // Debugging line
+  // Store access token in session
+  req.session.authorization = {
+    accessToken: accessToken
+  };
 
-    return res.status(200).json({ message: "Login successful", token });
+  return res.status(200).json({ message: "User successfully logged in", token: accessToken });
+});
+
+regd_users.delete("/auth/review/:isbn", (req, res) => {
+  const { isbn } = req.params; // Get ISBN from URL parameters
+  const username = req.user.username; // Get username from the session token
+
+  let book = books[isbn];
+
+  if (book) {
+    if (book.reviews && book.reviews[username]) {
+      // Delete the review of the logged-in user
+      delete book.reviews[username];
+      return res.status(200).json({ message: "Review deleted successfully" });
+    } else {
+      return res.status(404).json({ message: "Review not found for the user" });
+    }
   } else {
-    return res.status(401).json({ message: "Invalid username or password" });
+    return res.status(404).json({ message: "Book not found" });
   }
 });
 
-
-
+// Add or modify a book review
 regd_users.put("/auth/review/:isbn", (req, res) => {
   const { review } = req.query; // Get review from query parameters
   const { isbn } = req.params; // Get ISBN from URL parameters
@@ -66,12 +81,6 @@ regd_users.put("/auth/review/:isbn", (req, res) => {
   }
 });
 
-
-
 module.exports.authenticated = regd_users;
 module.exports.isValid = isValid;
 module.exports.users = users;
-
-
-
-//  node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
